@@ -220,27 +220,28 @@
         }
 
         function joinGame() {
-            const nick = document.getElementById('input-nick').value;
-            const room = document.getElementById('input-room').value.toUpperCase();
-            const ip = document.getElementById('input-ip').value;
-            
-            if (!nick || !room) { alert("Wpisz nick i kod!"); return; }
+    const nick = document.getElementById('input-nick').value;
+    const room = document.getElementById('input-room').value.toUpperCase();
+    const ip = document.getElementById('input-ip').value;
 
-            const avatarData = canvas.toDataURL('image/png'); // To teraz zawiera albo rysunek, albo zdjęcie, albo mix
+    if (!nick || !room) { alert("Wpisz nick i kod!"); return; }
 
-            playerNick = nick;
-            document.getElementById('status-bar').innerText = "Łączenie...";
+    const avatarData = canvas.toDataURL('image/png');
 
-            socket = new WebSocket(`ws://${ip}`);
-            socket.onopen = () => {
-                document.getElementById('status-bar').innerText = "Połączono!";
-                socket.send(JSON.stringify({
-                    type: "join_request",
-                    data: { name: playerNick, room: room, avatar: avatarData }
-                }));
-            };
-            socket.onmessage = (event) => handleServerMessage(JSON.parse(event.data));
-        }
+    playerNick = nick;
+    document.getElementById('status-bar').innerText = "Łączenie...";
+
+    // Połączenie z serwerem WebSocket na wskazanym IP
+    socket = new WebSocket(`ws://${188.68.247.91}`);
+    socket.onopen = () => {
+        document.getElementById('status-bar').innerText = "Połączono!";
+        socket.send(JSON.stringify({
+            type: "join_request",
+            data: { name: playerNick, room: room, avatar: avatarData }
+        }));
+    };
+    socket.onmessage = (event) => handleServerMessage(JSON.parse(event.data));
+}
 
         function handleServerMessage(msg) {
             if(msg.type === "join_success") {
@@ -257,4 +258,5 @@
         }
     </script>
 </body>
+
 </html>
