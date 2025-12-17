@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Let's Quiz - Foto & Rysowanie</title>
+    <title>Let's Quiz - Dołącz</title>
     <style>
         /* --- STYLIZACJA (CSS) --- */
         :root {
@@ -23,7 +23,7 @@
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             min-height: 100vh; overflow: hidden;
-            touch-action: none;
+            touch-action: none; /* Zapobiega przewijaniu przy rysowaniu */
         }
 
         .screen {
@@ -41,7 +41,9 @@
             border: 2px solid var(--highlight); border-radius: 8px;
             background-color: var(--secondary-color); color: white;
             font-size: 1.1rem; text-align: center; box-sizing: border-box;
+            outline: none;
         }
+        input[type="text"]:focus { border-color: var(--accent-color); }
 
         .btn {
             width: 100%; padding: 15px; margin-top: 10px;
@@ -49,6 +51,7 @@
             background-color: var(--accent-color); color: white;
             font-size: 1.2rem; font-weight: bold; cursor: pointer;
             box-shadow: 0 4px 0 #9e2a3b;
+            transition: transform 0.1s;
         }
         .btn:active { transform: translateY(4px); box-shadow: none; }
 
@@ -115,17 +118,16 @@
         <input type="file" id="file-upload" accept="image/*">
 
         <input type="text" id="input-nick" placeholder="Twój Pseudonim" maxlength="12">
-        <input type="text" id="input-room" placeholder="Kod Pokoju" maxlength="5" style="text-transform: uppercase;">
-        <input type="text" id="input-ip" value="188.68.247.91:8910" placeholder="IP Serwera">
+        <input type="text" id="input-room" placeholder="Kod Pokoju (np. ABCD)" maxlength="4" style="text-transform: uppercase;">
 
-        <button class="btn" onclick="joinGame()">GOTOWE!</button>
+        <button class="btn" onclick="joinGame()">DOŁĄCZ DO GRY</button>
     </div>
 
     <div id="screen-lobby" class="screen">
         <h2>Czekamy na start...</h2>
         <img id="lobby-avatar-img" src="" alt="Twój avatar">
         <h1 id="lobby-nick">Gracz</h1>
-        <div class="loader">Telewizor ma zawsze rację.</div>
+        <div class="loader">Patrz na duży ekran!</div>
     </div>
 
     <div id="screen-game-input" class="screen">
@@ -137,6 +139,9 @@
     <div id="status-bar">Niepołączony</div>
 
     <script>
+        // --- KONFIGURACJA ---
+        const SERVER_URL = "ws://188.68.247.91:8910"; // Twój stały adres IP
+
         /* --- LOGIKA CANVAS (RYSOWANIE + ZDJĘCIA) --- */
         const canvas = document.getElementById('drawing-canvas');
         const ctx = canvas.getContext('2d');
@@ -145,7 +150,7 @@
         
         // Setup początkowy
         ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, canvas.width, canvas.height); // Białe tło na start
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.lineWidth = 5;
         ctx.lineCap = 'round';
         ctx.strokeStyle = 'black';
@@ -159,12 +164,10 @@
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
-                    // Algorytm "Cover" - wypełnij kwadrat zdjęciem (przytnij nadmiar)
                     const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
                     const x = (canvas.width / 2) - (img.width / 2) * scale;
                     const y = (canvas.height / 2) - (img.height / 2) * scale;
                     
-                    // Czyścimy i rysujemy zdjęcie
                     ctx.clearRect(0,0, canvas.width, canvas.height);
                     ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
                 }
@@ -179,7 +182,7 @@
         
         function draw(e) {
             if (!painting) return;
-            e.preventDefault();
+            // e.preventDefault(); // Usunięte, bo w body jest touch-action: none
             
             let clientX = e.touches ? e.touches[0].clientX : e.clientX;
             let clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -191,7 +194,6 @@
             ctx.moveTo(clientX - rect.left, clientY - rect.top);
         }
 
-        // Eventy
         canvas.addEventListener('mousedown', startPosition);
         canvas.addEventListener('mouseup', endPosition);
         canvas.addEventListener('mousemove', draw);
@@ -222,7 +224,6 @@
         function joinGame() {
             const nick = document.getElementById('input-nick').value;
             const room = document.getElementById('input-room').value.toUpperCase();
-            const ip = document.getElementById('input-ip').value; // Pobieramy IP z inputa
 
             if (!nick || !room) { alert("Wpisz nick i kod!"); return; }
 
@@ -230,44 +231,66 @@
             playerNick = nick;
             document.getElementById('status-bar').innerText = "Łączenie...";
 
-            // POPRAWIONE: Używamy zmiennej 'ip'
             try {
-                socket = new WebSocket(`ws://${ip}`);
+                // Używamy stałego adresu IP
+                socket = new WebSocket(SERVER_URL);
             } catch(e) {
-                alert("Nieprawidłowy adres IP!");
+                alert("Błąd inicjalizacji WebSocket.");
                 return;
             }
 
             socket.onopen = () => {
                 document.getElementById('status-bar').innerText = "Połączono!";
+                
+                // POPRAWIONA STRUKTURA dla twojego server.js
                 socket.send(JSON.stringify({
                     type: "join_request",
-                    data: { name: playerNick, room: room, avatar: avatarData }
+                    room: room,       // To musi być w głównym obiekcie
+                    nick: playerNick, // Opcjonalne dodatki
+                    avatar: avatarData
                 }));
             };
             
             socket.onerror = (error) => {
                 console.error("Błąd WebSocket:", error);
-                document.getElementById('status-bar').innerText = "Błąd połączenia! Sprawdź IP.";
+                document.getElementById('status-bar').innerText = "Błąd połączenia z serwerem.";
             };
 
             socket.onmessage = (event) => handleServerMessage(JSON.parse(event.data));
+            
+            // Obsługa zamknięcia przez serwer (np. błędny pokój)
+            socket.onclose = () => {
+                document.getElementById('status-bar').innerText = "Rozłączono.";
+            };
         }
 
         function handleServerMessage(msg) {
+            if (msg.type === "error") {
+                alert(msg.message); // np. "Pokój nie istnieje"
+                socket.close();
+                return;
+            }
+
             if(msg.type === "join_success") {
                 document.getElementById('lobby-avatar-img').src = canvas.toDataURL();
                 document.getElementById('lobby-nick').innerText = playerNick;
                 showScreen('screen-lobby');
             }
-            if(msg.type === "game_start_text") showScreen('screen-game-input');
+            
+            if(msg.type === "game_start_text") {
+                showScreen('screen-game-input');
+            }
         }
 
         function sendAnswer() {
             const answer = document.getElementById('game-answer-input').value;
             if(answer && socket) {
-                socket.send(JSON.stringify({type: "player_answer", data: {answer: answer}}));
-                document.getElementById('game-answer-input').value = ""; // Czyści pole po wysłaniu
+                // Klient wysyła dane, które serwer opakuje w "client_msg" dla hosta
+                socket.send(JSON.stringify({
+                    type: "player_answer", 
+                    answer: answer
+                }));
+                document.getElementById('game-answer-input').value = ""; 
             }
         }
     </script>
