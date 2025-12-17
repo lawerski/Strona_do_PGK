@@ -116,7 +116,7 @@
 
         <input type="text" id="input-nick" placeholder="Twój Pseudonim" maxlength="12">
         <input type="text" id="input-room" placeholder="Kod Pokoju" maxlength="5" style="text-transform: uppercase;">
-        <input type="text" id="input-ip" value="192.168.1.XX:8910" placeholder="IP Serwera">
+        <input type="text" id="input-ip" value="188.68.247.91:8910" placeholder="IP Serwera">
 
         <button class="btn" onclick="joinGame()">GOTOWE!</button>
     </div>
@@ -210,7 +210,7 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
-        /* --- LOGIKA SIECIOWA (BEZ ZMIAN) --- */
+        /* --- LOGIKA SIECIOWA --- */
         let socket;
         let playerNick = "";
 
@@ -220,28 +220,39 @@
         }
 
         function joinGame() {
-    const nick = document.getElementById('input-nick').value;
-    const room = document.getElementById('input-room').value.toUpperCase();
-    const ip = document.getElementById('input-ip').value;
+            const nick = document.getElementById('input-nick').value;
+            const room = document.getElementById('input-room').value.toUpperCase();
+            const ip = document.getElementById('input-ip').value; // Pobieramy IP z inputa
 
-    if (!nick || !room) { alert("Wpisz nick i kod!"); return; }
+            if (!nick || !room) { alert("Wpisz nick i kod!"); return; }
 
-    const avatarData = canvas.toDataURL('image/png');
+            const avatarData = canvas.toDataURL('image/png');
+            playerNick = nick;
+            document.getElementById('status-bar').innerText = "Łączenie...";
 
-    playerNick = nick;
-    document.getElementById('status-bar').innerText = "Łączenie...";
+            // POPRAWIONE: Używamy zmiennej 'ip'
+            try {
+                socket = new WebSocket(`ws://${ip}`);
+            } catch(e) {
+                alert("Nieprawidłowy adres IP!");
+                return;
+            }
 
-    // Połączenie z serwerem WebSocket na wskazanym IP
-    socket = new WebSocket(`ws://${188.68.247.91}`);
-    socket.onopen = () => {
-        document.getElementById('status-bar').innerText = "Połączono!";
-        socket.send(JSON.stringify({
-            type: "join_request",
-            data: { name: playerNick, room: room, avatar: avatarData }
-        }));
-    };
-    socket.onmessage = (event) => handleServerMessage(JSON.parse(event.data));
-}
+            socket.onopen = () => {
+                document.getElementById('status-bar').innerText = "Połączono!";
+                socket.send(JSON.stringify({
+                    type: "join_request",
+                    data: { name: playerNick, room: room, avatar: avatarData }
+                }));
+            };
+            
+            socket.onerror = (error) => {
+                console.error("Błąd WebSocket:", error);
+                document.getElementById('status-bar').innerText = "Błąd połączenia! Sprawdź IP.";
+            };
+
+            socket.onmessage = (event) => handleServerMessage(JSON.parse(event.data));
+        }
 
         function handleServerMessage(msg) {
             if(msg.type === "join_success") {
@@ -254,9 +265,11 @@
 
         function sendAnswer() {
             const answer = document.getElementById('game-answer-input').value;
-            if(answer) socket.send(JSON.stringify({type: "player_answer", data: {answer: answer}}));
+            if(answer && socket) {
+                socket.send(JSON.stringify({type: "player_answer", data: {answer: answer}}));
+                document.getElementById('game-answer-input').value = ""; // Czyści pole po wysłaniu
+            }
         }
     </script>
 </body>
-
 </html>
